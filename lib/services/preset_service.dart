@@ -7,6 +7,7 @@ import '../models/effect_preset.dart';
 /// persisted to SharedPreferences as JSON.
 class PresetService {
   static const String _storageKey = 'hdrplus_custom_presets';
+  static const String _lastProfileKey = 'hdrplus_last_profile_id';
 
   /// Returns all available presets (built-in + custom).
   Future<List<EffectPreset>> getAllPresets() async {
@@ -20,6 +21,16 @@ class PresetService {
     final prefs = await SharedPreferences.getInstance();
     final jsonList = prefs.getStringList(_storageKey) ?? [];
     return jsonList.map((json) => EffectPreset.fromJsonString(json)).toList();
+  }
+
+  /// Find a preset by its ID (searches built-in and custom).
+  Future<EffectPreset?> getPresetById(String id) async {
+    final all = await getAllPresets();
+    try {
+      return all.firstWhere((p) => p.id == id);
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Save a new custom preset.
@@ -53,5 +64,17 @@ class PresetService {
   /// Check if a preset is a built-in preset.
   bool isBuiltIn(String presetId) {
     return EffectPreset.builtInPresets().any((p) => p.id == presetId);
+  }
+
+  /// Get the last selected profile ID.
+  Future<String?> getLastSelectedProfileId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_lastProfileKey);
+  }
+
+  /// Save the last selected profile ID.
+  Future<void> setLastSelectedProfileId(String id) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_lastProfileKey, id);
   }
 }

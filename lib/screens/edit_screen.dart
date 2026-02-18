@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
@@ -16,11 +17,13 @@ import '../widgets/preset_card.dart';
 class EditScreen extends StatefulWidget {
   final img.Image image;
   final Uint8List originalImageBytes;
+  final EffectPreset? initialPreset;
 
   const EditScreen({
     super.key,
     required this.image,
     required this.originalImageBytes,
+    this.initialPreset,
   });
 
   @override
@@ -32,7 +35,6 @@ class _EditScreenState extends State<EditScreen> {
   final ExportService _exportService = ExportService();
   final PresetService _presetService = PresetService();
 
-  late img.Image _currentImage;
   late Uint8List _displayBytes;
   late EffectPreset _currentPreset;
   List<EffectPreset> _presets = [];
@@ -41,13 +43,28 @@ class _EditScreenState extends State<EditScreen> {
   bool _isExporting = false;
   ExportSettings _exportSettings = const ExportSettings();
 
+  // Debounce timer for slider changes
+  Timer? _debounceTimer;
+  // Version counter to discard stale results
+  int _processVersion = 0;
+
   @override
   void initState() {
     super.initState();
-    _currentImage = widget.image;
     _displayBytes = imageToJpegBytes(widget.image, quality: 85);
-    _currentPreset = EffectPreset.natural();
+    _currentPreset = widget.initialPreset?.clone() ?? EffectPreset.natural();
     _loadPresets();
+
+    // Apply initial preset if provided
+    if (widget.initialPreset != null) {
+      Future.microtask(() => _applyPreset(_currentPreset));
+    }
+  }
+
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadPresets() async {
@@ -56,36 +73,55 @@ class _EditScreenState extends State<EditScreen> {
   }
 
   Future<void> _applyPreset(EffectPreset preset) async {
+    _processVersion++;
+    final thisVersion = _processVersion;
+
     setState(() {
       _currentPreset = preset.clone();
       _isProcessing = true;
     });
 
     try {
-      final result = await _effectsEngine.applyPreset(widget.image, preset);
-      if (mounted) {
-        setState(() {
-          _currentImage = result;
-          _displayBytes = imageToJpegBytes(result, quality: 85);
-          _isProcessing = false;
-        });
-      }
+      // Use preview-resolution processing for fast feedback
+      final result = await _effectsEngine.applyPresetPreview(
+        widget.image,
+        preset,
+      );
+      // Discard if a newer request was made
+      if (thisVersion != _processVersion || !mounted) return;
+      setState(() {
+        _displayBytes = imageToJpegBytes(result, quality: 80);
+        _isProcessing = false;
+      });
     } catch (e) {
-      if (mounted) setState(() => _isProcessing = false);
+      if (thisVersion == _processVersion && mounted) {
+        setState(() => _isProcessing = false);
+      }
     }
   }
 
+  /// Debounced handler for slider changes — waits 300ms after last
+  /// change before starting expensive processing.
   Future<void> _onPresetChanged(EffectPreset preset) async {
-    await _applyPreset(preset);
+    // Update UI immediately (slider position)
+    setState(() => _currentPreset = preset.clone());
+
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+      _applyPreset(preset);
+    });
   }
 
   Future<void> _exportImage() async {
     setState(() => _isExporting = true);
 
-    final path = await _exportService.exportImage(
-      _currentImage,
-      _exportSettings,
+    // Process at FULL resolution for export
+    final fullRes = await _effectsEngine.applyPreset(
+      widget.image,
+      _currentPreset,
     );
+
+    final path = await _exportService.exportImage(fullRes, _exportSettings);
 
     setState(() => _isExporting = false);
 
@@ -316,6 +352,32 @@ class _EditScreenState extends State<EditScreen> {
             presets: _presets,
             selectedId: _currentPreset.id,
             onSelected: _applyPreset,
+          ),
+
+          // Save as Profile button
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+            child: SizedBox(
+              width: double.infinity,
+              height: 40,
+              child: OutlinedButton.icon(
+                onPressed: _saveCustomPreset,
+                icon: const Icon(Icons.bookmark_add_rounded, size: 18),
+                label: const Text(
+                  'Save as Profile',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFFFC107),
+                  side: BorderSide(
+                    color: const Color(0xFFFFC107).withOpacity(0.4),
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
           ),
 
           // Effects panel

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// Reusable pro-mode slider with label, value display, and custom range.
+/// Reusable pro-mode slider with label, value display, and +/- step buttons.
 /// Supports haptic feedback and dark camera-style theming.
 class ControlSlider extends StatelessWidget {
   final String label;
@@ -27,12 +27,36 @@ class ControlSlider extends StatelessWidget {
     this.icon,
   });
 
+  /// Step size for +/- buttons (matches slider divisions)
+  double get _step {
+    if (divisions != null && divisions! > 0) {
+      return (max - min) / divisions!;
+    }
+    return (max - min) / 40; // default 40 divisions
+  }
+
+  void _increment() {
+    final next = (value + _step).clamp(min, max);
+    if (next != value) {
+      HapticFeedback.selectionClick();
+      onChanged(next);
+    }
+  }
+
+  void _decrement() {
+    final next = (value - _step).clamp(min, max);
+    if (next != value) {
+      HapticFeedback.selectionClick();
+      onChanged(next);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final color = activeColor ?? const Color(0xFFFFC107);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       child: Row(
         children: [
           // Icon or label
@@ -50,6 +74,13 @@ class ControlSlider extends StatelessWidget {
                         letterSpacing: 0.5,
                       ),
                     ),
+          ),
+
+          // Minus button
+          _StepButton(
+            icon: Icons.remove,
+            color: color,
+            onTap: value > min ? _decrement : null,
           ),
 
           // Slider
@@ -77,9 +108,16 @@ class ControlSlider extends StatelessWidget {
             ),
           ),
 
+          // Plus button
+          _StepButton(
+            icon: Icons.add,
+            color: color,
+            onTap: value < max ? _increment : null,
+          ),
+
           // Value display
           SizedBox(
-            width: 60,
+            width: 48,
             child: Text(
               valueLabel ?? value.toStringAsFixed(1),
               textAlign: TextAlign.right,
@@ -92,6 +130,42 @@ class ControlSlider extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Compact circular step button for fine-tuning slider values.
+class _StepButton extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onTap;
+
+  const _StepButton({required this.icon, required this.color, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final isEnabled = onTap != null;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color:
+              isEnabled
+                  ? color.withOpacity(0.12)
+                  : Colors.white.withOpacity(0.04),
+          border: Border.all(
+            color:
+                isEnabled
+                    ? color.withOpacity(0.3)
+                    : Colors.white.withOpacity(0.08),
+          ),
+        ),
+        child: Icon(icon, size: 14, color: isEnabled ? color : Colors.white24),
       ),
     );
   }

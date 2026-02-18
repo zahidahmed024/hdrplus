@@ -180,6 +180,14 @@ class EffectPreset {
     ),
   ];
 
+  /// Built-in preset: No Effect (pass-through, no adjustments at all).
+  static EffectPreset noEffect() => EffectPreset(
+    id: 'no_effect',
+    name: 'No Effect',
+    parameters: defaultParameters(),
+    isBuiltIn: true,
+  );
+
   /// Built-in preset: Natural (neutral, no adjustments).
   static EffectPreset natural() => EffectPreset(
     id: 'natural',
@@ -191,10 +199,10 @@ class EffectPreset {
   /// Built-in preset: Vivid (boosted colors and contrast).
   static EffectPreset vivid() {
     final params = defaultParameters();
-    _setParam(params, 'contrast', 0.3);
-    _setParam(params, 'vibrance', 0.5);
-    _setParam(params, 'saturation', 0.3);
-    _setParam(params, 'clarity', 0.2);
+    _setParam(params, 'contrast', 0.35);
+    _setParam(params, 'vibrance', 0.55);
+    _setParam(params, 'saturation', 0.35);
+    _setParam(params, 'clarity', 0.25);
     return EffectPreset(
       id: 'vivid',
       name: 'Vivid',
@@ -203,14 +211,14 @@ class EffectPreset {
     );
   }
 
-  /// Built-in preset: Cinematic (warm tones, lifted shadows).
+  /// Built-in preset: Cinematic (warm tones, lifted shadows, slight desat).
   static EffectPreset cinematic() {
     final params = defaultParameters();
-    _setParam(params, 'contrast', 0.4);
-    _setParam(params, 'shadows', 0.3);
-    _setParam(params, 'highlights', -0.2);
-    _setParam(params, 'temperature', 0.15);
-    _setParam(params, 'saturation', -0.1);
+    _setParam(params, 'contrast', 0.45);
+    _setParam(params, 'shadows', 0.35);
+    _setParam(params, 'highlights', -0.25);
+    _setParam(params, 'temperature', 0.2);
+    _setParam(params, 'saturation', -0.15);
     return EffectPreset(
       id: 'cinematic',
       name: 'Cinematic',
@@ -219,12 +227,12 @@ class EffectPreset {
     );
   }
 
-  /// Built-in preset: B&W (desaturated with strong contrast).
+  /// Built-in preset: B&W (fully desaturated with strong contrast).
   static EffectPreset blackAndWhite() {
     final params = defaultParameters();
     _setParam(params, 'saturation', -1.0);
-    _setParam(params, 'contrast', 0.5);
-    _setParam(params, 'clarity', 0.3);
+    _setParam(params, 'contrast', 0.55);
+    _setParam(params, 'clarity', 0.35);
     return EffectPreset(
       id: 'bw',
       name: 'B&W',
@@ -236,12 +244,12 @@ class EffectPreset {
   /// Built-in preset: HDR Dramatic (strong tone mapping look).
   static EffectPreset hdrDramatic() {
     final params = defaultParameters();
-    _setParam(params, 'contrast', 0.2);
-    _setParam(params, 'clarity', 0.6);
-    _setParam(params, 'shadows', 0.5);
-    _setParam(params, 'highlights', -0.4);
-    _setParam(params, 'vibrance', 0.3);
-    _setParam(params, 'sharpen', 0.3);
+    _setParam(params, 'contrast', 0.25);
+    _setParam(params, 'clarity', 0.7);
+    _setParam(params, 'shadows', 0.6);
+    _setParam(params, 'highlights', -0.5);
+    _setParam(params, 'vibrance', 0.35);
+    _setParam(params, 'sharpen', 0.35);
     return EffectPreset(
       id: 'hdr_dramatic',
       name: 'HDR Dramatic',
@@ -260,6 +268,7 @@ class EffectPreset {
 
   /// Returns all built-in presets.
   static List<EffectPreset> builtInPresets() => [
+    noEffect(),
     natural(),
     vivid(),
     cinematic(),

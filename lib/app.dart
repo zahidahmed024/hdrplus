@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/camera_screen.dart';
+import 'screens/profile_selection_screen.dart';
 
 /// HDR+ Camera App — main entry point with dark theme, fullscreen, and routing.
 class HdrPlusApp extends StatelessWidget {
@@ -46,7 +46,7 @@ class HdrPlusApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const CameraScreen(),
+      home: const ProfileSelectionScreen(),
     );
   }
 }

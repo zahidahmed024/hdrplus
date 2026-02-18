@@ -1,10 +1,12 @@
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:image/image.dart' as img;
 
 import '../models/camera_settings.dart';
+import '../models/effect_preset.dart';
 import '../models/hdr_settings.dart';
 
 import '../services/camera_service.dart';
@@ -17,13 +19,16 @@ import '../widgets/hdr_toggle.dart';
 import '../widgets/capture_button.dart';
 import '../widgets/processing_overlay.dart';
 import '../widgets/zoom_slider.dart';
+import 'capture_review_screen.dart';
 import 'edit_screen.dart';
 import 'gallery_screen.dart';
 import 'settings_screen.dart';
 
 /// Main camera screen with live preview, pro controls, and HDR capture.
 class CameraScreen extends StatefulWidget {
-  const CameraScreen({super.key});
+  final EffectPreset? selectedProfile;
+
+  const CameraScreen({super.key, this.selectedProfile});
 
   @override
   State<CameraScreen> createState() => _CameraScreenState();
@@ -86,8 +91,9 @@ class _CameraScreenState extends State<CameraScreen>
     if (file == null || !mounted) return;
 
     final bytes = await File(file.path).readAsBytes();
-    final image = img.decodeImage(bytes);
-    if (image == null) return;
+    // Decode in background isolate to keep UI responsive
+    final image = await Isolate.run(() => img.decodeImage(bytes));
+    if (image == null || !mounted) return;
 
     _navigateToEdit(image, bytes);
   }
@@ -157,14 +163,30 @@ class _CameraScreenState extends State<CameraScreen>
   }
 
   void _navigateToEdit(img.Image image, Uint8List originalBytes) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder:
-            (context) =>
-                EditScreen(image: image, originalImageBytes: originalBytes),
-      ),
-    );
+    if (widget.selectedProfile != null) {
+      // Profile selected → go to review screen
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder:
+              (_) => CaptureReviewScreen(
+                image: image,
+                originalImageBytes: originalBytes,
+                selectedProfile: widget.selectedProfile!,
+              ),
+        ),
+      );
+    } else {
+      // No profile → go straight to editor
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder:
+              (_) =>
+                  EditScreen(image: image, originalImageBytes: originalBytes),
+        ),
+      );
+    }
   }
 
   void _toggleFlash() {
@@ -215,15 +237,60 @@ class _CameraScreenState extends State<CameraScreen>
             // Top bar (HDR toggle, flash, settings)
             Positioned(top: 0, left: 0, right: 0, child: _buildTopBar()),
 
+            // Profile badge
+            if (widget.selectedProfile != null)
+              Positioned(
+                top: 60,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFC107).withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: const Color(0xFFFFC107).withOpacity(0.4),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.auto_fix_high,
+                          size: 14,
+                          color: Color(0xFFFFC107),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          widget.selectedProfile!.name,
+                          style: const TextStyle(
+                            color: Color(0xFFFFC107),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
             // Zoom slider (right edge)
             Positioned(
               right: 8,
-              top: MediaQuery.of(context).size.height * 0.3,
+              top: MediaQuery.of(context).size.height * 0.25,
               child: ZoomSlider(
                 value: _cameraService.settings.zoom,
                 min: _cameraService.minZoom,
                 max: _cameraService.maxZoom.clamp(1.0, 10.0),
-                onChanged: (v) => _cameraService.setZoom(v),
+                onChanged: (v) {
+                  _cameraService.setZoom(v);
+                  setState(() {});
+                },
               ),
             ),
 
